@@ -12,10 +12,10 @@
 
   <header>
     <h1>💊 منظم مواعيد الدواء</h1>
-    <div class="current-time" id="clock">00:00:00</div>
+    <div class="current-time" id="clock">12:00:00 ص</div>
   </header>
 
-  <!-- شاشة تنبيه منبثقة عند موعد الدواء -->
+  <!-- شاشة المنبه المنبثقة -->
   <div id="alarm-modal" class="modal hidden">
     <div class="modal-content">
       <h2>⏰ حان وقت الدواء!</h2>
@@ -26,36 +26,79 @@
   </div>
 
   <main>
-    <!-- قسم التحكم في الصوت -->
+    <!-- قسم الصوت واختيار نغمة الهاتف -->
     <section class="card volume-box">
-      <label for="volumeSlider">🔊 مستوى صوت المنبه:</label>
-      <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1">
+      <h2>🔔 إعدادات صوت المنبه</h2>
+      
+      <div class="input-group">
+        <label for="customAudioFile">اختر نغمة من الهاتف:</label>
+        <input type="file" id="customAudioFile" accept="audio/*">
+        <small id="audioStatusText" class="status-text">النغمة الحالية: النغمة الافتراضية</small>
+      </div>
+
+      <div class="input-group">
+        <label for="volumeSlider">🔊 مستوى الصوت:</label>
+        <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1">
+      </div>
+
       <button id="btn-test-sound" class="btn-secondary">تجربة الصوت</button>
     </section>
 
     <!-- نموذج إضافة دواء جديد -->
     <section class="card form-box">
-      <h2>إضافة دواء جديد</h2>
+      <h2>إضافة ميعاد دواء</h2>
       <form id="med-form">
         <div class="input-group">
           <label>اسم الدواء:</label>
-          <input type="text" id="med-name" placeholder="مثال: علاج الضغط" required>
+          <input type="text" id="med-name" placeholder="مثال: فيتامين د" required>
         </div>
+
         <div class="input-group">
           <label>الجرعة / ملاحظة:</label>
-          <input type="text" id="med-dose" placeholder="مثال: قرص واحد بعد الأكل" required>
+          <input type="text" id="med-dose" placeholder="مثال: كبسولة واحدة بعد الغداء" required>
         </div>
+
         <div class="input-group">
           <label>الميعاد:</label>
           <input type="time" id="med-time" required>
         </div>
+
+        <div class="input-group">
+          <label>نظام التكرار:</label>
+          <select id="med-recurrence">
+            <option value="daily">يومياً</option>
+            <option value="weekly">أسبوعياً (يوم محدد)</option>
+            <option value="monthly">شهرياً (تاريخ محدد)</option>
+          </select>
+        </div>
+
+        <!-- اختيار اليوم للأسبوعي -->
+        <div class="input-group hidden" id="box-weekly-day">
+          <label>اختر اليوم من الأسبوع:</label>
+          <select id="med-weekday">
+            <option value="5">الجمعة</option>
+            <option value="6">السبت</option>
+            <option value="0">الأحد</option>
+            <option value="1">الإثنين</option>
+            <option value="2">الثلاثاء</option>
+            <option value="3">الأربعاء</option>
+            <option value="4">الخميس</option>
+          </select>
+        </div>
+
+        <!-- اختيار اليوم للشهري -->
+        <div class="input-group hidden" id="box-monthly-day">
+          <label>تاريخ اليوم في الشهر (1 - 31):</label>
+          <input type="number" id="med-monthday" min="1" max="31" value="1">
+        </div>
+
         <button type="submit" class="btn-primary">+ حفظ الميعاد</button>
       </form>
     </section>
 
-    <!-- قائمة المواعيد اليومية -->
+    <!-- قائمة الأدوية -->
     <section class="card list-box">
-      <h2>أدويتي اليوم</h2>
+      <h2>جدول الأدوية المسجلة</h2>
       <ul id="med-list" class="med-list"></ul>
     </section>
   </main>
