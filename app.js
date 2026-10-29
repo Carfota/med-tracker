@@ -2,9 +2,48 @@ let meds = JSON.parse(localStorage.getItem('my_medications')) || [];
 const audio = document.getElementById('alarm-audio');
 const volumeSlider = document.getElementById('volumeSlider');
 const modal = document.getElementById('alarm-modal');
-let triggeredToday = {}; // لمنع تكرار التنبيه في نفس الدقيقة
+const customAudioFileInput = document.getElementById('customAudioFile');
+const audioStatusText = document.getElementById('audioStatusText');
 
-// ضبط مستوى الصوت
+let triggeredToday = {};
+
+// 1. تحويل الوقت من صيغة 24 إلى 12 ساعة (ص / م)
+function formatTo12Hour(time24) {
+  if (!time24) return '';
+  let [hours, minutes] = time24.split(':').map(Number);
+  const period = hours >= 12 ? 'م' : 'ص';
+  hours = hours % 12 || 12;
+  return `${hours}:${String(minutes).padStart(2, '0')} ${period}`;
+}
+
+// 2. تحميل النغمة المخصصة المحفوظة إن وجدت
+const savedCustomAudio = localStorage.getItem('custom_alarm_sound');
+if (savedCustomAudio) {
+  audio.src = savedCustomAudio;
+  audioStatusText.innerText = 'النغمة الحالية: تم اختيار نغمة مخصصة من الهاتف';
+}
+
+// 3. رفع وحفظ نغمة من الهاتف محلياً كـ Data URL
+customAudioFileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const base64Audio = event.target.result;
+    try {
+      localStorage.setItem('custom_alarm_sound', base64Audio);
+      audio.src = base64Audio;
+      audioStatusText.innerText = `النغمة الحالية: ${file.name}`;
+      alert('تم حفظ النغمة بنجاح!');
+    } catch (err) {
+      alert('الملف الصوتي كبير جداً على التخزين المحلي، يرجى اختيار ملف نغمة صغير الحجم.');
+    }
+  };
+  reader.readAsDataURL(file);
+});
+
+// 4. مستوى الصوت
 volumeSlider.value = localStorage.getItem('med_alarm_volume') || 1;
 audio.volume = parseFloat(volumeSlider.value);
 
@@ -28,31 +67,63 @@ document.getElementById('btn-test-sound').addEventListener('click', () => {
   }
 });
 
-// تحديث الساعة والتحقق من التنبيهات
+// 5. إظهار حقول اليوم بحسب نظام التكرار المختار
+const recurrenceSelect = document.getElementById('med-recurrence');
+const weeklyBox = document.getElementById('box-weekly-day');
+const monthlyBox = document.getElementById('box-monthly-day');
+
+recurrenceSelect.addEventListener('change', (e) => {
+  weeklyBox.classList.add('hidden');
+  monthlyBox.classList.add('hidden');
+  if (e.target.value === 'weekly') weeklyBox.classList.remove('hidden');
+  if (e.target.value === 'monthly') monthlyBox.classList.remove('hidden');
+});
+
+// 6. الساعة ونظام التنبيه اليومي / الأسبوعي / الشهري
+const weekDaysArabic = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
 function updateClockAndCheck() {
   const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
+  
+  // صيغة 12 ساعة للساعة الكبيرة
+  let rawHours = now.getHours();
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const seconds = String(now.getSeconds()).padStart(2, '0');
-  const currentTime = `${hours}:${minutes}`;
+  const period = rawHours >= 12 ? 'م' : 'ص';
+  const displayHours = rawHours % 12 || 12;
+  
+  document.getElementById('clock').innerText = `${displayHours}:${minutes}:${seconds} ${period}`;
 
-  document.getElementById('clock').innerText = `${hours}:${minutes}:${seconds}`;
+  // الوقت الحالي للمقارنة بصيغة 24 ساعة
+  const currentTime = `${String(rawHours).padStart(2, '0')}:${minutes}`;
+  const currentDayOfWeek = now.getDay(); // 0-6
+  const currentDayOfMonth = now.getDate(); // 1-31
 
-  // فحص إذا كان الميعاد الحالي يطابق أي دواء
   meds.forEach(med => {
-    if (med.time === currentTime && !triggeredToday[med.id + '_' + currentTime]) {
+    let shouldTrigger = false;
+
+    if (med.time === currentTime) {
+      if (med.recurrence === 'daily') {
+        shouldTrigger = true;
+      } else if (med.recurrence === 'weekly' && parseInt(med.day) === currentDayOfWeek) {
+        shouldTrigger = true;
+      } else if (med.recurrence === 'monthly' && parseInt(med.day) === currentDayOfMonth) {
+        shouldTrigger = true;
+      }
+    }
+
+    if (shouldTrigger && !triggeredToday[med.id + '_' + currentTime]) {
       triggerAlarm(med);
       triggeredToday[med.id + '_' + currentTime] = true;
     }
   });
 
-  // إعادة ضبط التنبيهات في منتصف الليل
   if (currentTime === "00:00") triggeredToday = {};
 }
 
 setInterval(updateClockAndCheck, 1000);
 
-// تشغيل المنبه وإظهار الشاشة
+// 7. تشغيل التنبيه
 function triggerAlarm(med) {
   document.getElementById('alarm-med-name').innerText = med.name;
   document.getElementById('alarm-med-dose').innerText = med.dose;
@@ -60,30 +131,43 @@ function triggerAlarm(med) {
 
   audio.currentTime = 0;
   audio.play().catch(err => {
-    console.log("الرجاء التفاعل مع الصفحة للسماح بتشغيل الصوت تلقائياً");
+    console.log("يلزم تفاعل مسبق لتشغيل الصوت تلقائياً");
   });
 }
 
-// إيقاف المنبه
+// إيقاف التنبيه
 document.getElementById('btn-stop-alarm').addEventListener('click', () => {
   audio.pause();
   audio.currentTime = 0;
   modal.classList.add('hidden');
 });
 
-// حفظ دواء جديد
+// 8. حفظ الدواء
 document.getElementById('med-form').addEventListener('submit', (e) => {
   e.preventDefault();
+  const recType = recurrenceSelect.value;
+  let recDay = null;
+
+  if (recType === 'weekly') {
+    recDay = document.getElementById('med-weekday').value;
+  } else if (recType === 'monthly') {
+    recDay = document.getElementById('med-monthday').value;
+  }
+
   const newMed = {
     id: Date.now(),
     name: document.getElementById('med-name').value.trim(),
     dose: document.getElementById('med-dose').value.trim(),
-    time: document.getElementById('med-time').value
+    time: document.getElementById('med-time').value,
+    recurrence: recType,
+    day: recDay
   };
 
   meds.push(newMed);
   localStorage.setItem('my_medications', JSON.stringify(meds));
   e.target.reset();
+  weeklyBox.classList.add('hidden');
+  monthlyBox.classList.add('hidden');
   renderMeds();
 });
 
@@ -107,15 +191,23 @@ function renderMeds() {
   meds.sort((a, b) => a.time.localeCompare(b.time));
 
   meds.forEach(med => {
+    let recLabel = 'يومياً';
+    if (med.recurrence === 'weekly') {
+      recLabel = `أسبوعياً (كل يوم ${weekDaysArabic[med.day]})`;
+    } else if (med.recurrence === 'monthly') {
+      recLabel = `شهرياً (يوم ${med.day} في الشهر)`;
+    }
+
     const li = document.createElement('li');
     li.className = 'med-item';
     li.innerHTML = `
       <div class="med-info">
         <h3>${med.name}</h3>
         <p>${med.dose}</p>
+        <span class="tag-badge">${recLabel}</span>
       </div>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <span class="med-time-tag">${med.time}</span>
+        <span class="med-time-tag">${formatTo12Hour(med.time)}</span>
         <button class="btn-del" onclick="deleteMed(${med.id})">حذف</button>
       </div>
     `;
