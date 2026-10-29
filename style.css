@@ -1,0 +1,184 @@
+* {
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #f0f4f8;
+  color: #1a202c;
+  padding: 16px;
+  max-width: 600px;
+  margin: auto;
+}
+
+header {
+  text-align: center;
+  padding: 16px 0;
+}
+
+header h1 {
+  font-size: 24px;
+  color: #1a365d;
+}
+
+.current-time {
+  font-size: 26px;
+  font-weight: bold;
+  color: #2b6cb0;
+  margin-top: 6px;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+}
+
+.card h2 {
+  font-size: 19px;
+  margin-bottom: 12px;
+  color: #2d3748;
+}
+
+.input-group {
+  margin-bottom: 12px;
+}
+
+label {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+input[type="text"], input[type="time"] {
+  width: 100%;
+  padding: 12px;
+  font-size: 18px;
+  border: 2px solid #cbd5e0;
+  border-radius: 8px;
+  outline: none;
+}
+
+input[type="range"] {
+  width: 100%;
+  height: 28px;
+  margin: 8px 0;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: bold;
+  padding: 12px 18px;
+  width: 100%;
+}
+
+.btn-primary {
+  background-color: #2b6cb0;
+  color: white;
+  margin-top: 6px;
+}
+
+.btn-secondary {
+  background-color: #e2e8f0;
+  color: #2d3748;
+  margin-top: 6px;
+}
+
+.med-list {
+  list-style: none;
+}
+
+.med-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.med-info h3 {
+  font-size: 20px;
+  color: #1a202c;
+}
+
+.med-info p {
+  font-size: 16px;
+  color: #718096;
+}
+
+.med-time-tag {
+  font-size: 20px;
+  font-weight: bold;
+  background: #ebf8ff;
+  color: #2b6cb0;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.btn-del {
+  background: #fed7d7;
+  color: #9b2c2c;
+  padding: 8px 12px;
+  font-size: 15px;
+  width: auto;
+  border-radius: 6px;
+}
+
+/* شاشة التنبيه المنبثقة */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.modal-content {
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  text-align: center;
+  width: 100%;
+  max-width: 400px;
+  border: 4px solid #e53e3e;
+}
+
+.modal-content h2 {
+  font-size: 26px;
+  color: #e53e3e;
+  margin-bottom: 12px;
+}
+
+.alert-med-name {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.alert-med-dose {
+  font-size: 18px;
+  color: #4a5568;
+  margin-bottom: 20px;
+}
+
+.btn-stop {
+  background-color: #38a169;
+  color: white;
+  font-size: 22px;
+  padding: 16px;
+}
