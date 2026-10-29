@@ -21,15 +21,18 @@
       <h2>⏰ حان وقت الدواء!</h2>
       <p id="alarm-med-name" class="alert-med-name"></p>
       <p id="alarm-med-dose" class="alert-med-dose"></p>
-      <button id="btn-stop-alarm" class="btn-stop">أخذت الدواء (إيقاف المنبه)</button>
+      
+      <div class="alarm-actions">
+        <button id="btn-stop-alarm" class="btn-stop">✅ أخذت الدواء</button>
+        <button id="btn-snooze-alarm" class="btn-snooze">⏳ فكرني بعد 10 دقائق (غفوة)</button>
+      </div>
     </div>
   </div>
 
   <main>
-    <!-- قسم الصوت واختيار نغمة الهاتف -->
+    <!-- قسم الصوت -->
     <section class="card volume-box">
       <h2>🔔 إعدادات صوت المنبه</h2>
-      
       <div class="input-group">
         <label for="customAudioFile">اختر نغمة من الهاتف:</label>
         <input type="file" id="customAudioFile" accept="audio/*">
@@ -72,7 +75,6 @@
           </select>
         </div>
 
-        <!-- اختيار اليوم للأسبوعي -->
         <div class="input-group hidden" id="box-weekly-day">
           <label>اختر اليوم من الأسبوع:</label>
           <select id="med-weekday">
@@ -86,7 +88,6 @@
           </select>
         </div>
 
-        <!-- اختيار اليوم للشهري -->
         <div class="input-group hidden" id="box-monthly-day">
           <label>تاريخ اليوم في الشهر (1 - 31):</label>
           <input type="number" id="med-monthday" min="1" max="31" value="1">
@@ -96,10 +97,22 @@
       </form>
     </section>
 
-    <!-- قائمة الأدوية -->
+    <!-- قائمة جدول اليوم -->
     <section class="card list-box">
-      <h2>جدول الأدوية المسجلة</h2>
+      <h2>📋 جدول أدوية اليوم وحالتها</h2>
       <ul id="med-list" class="med-list"></ul>
+    </section>
+
+    <!-- السجل الدائم للتاريخ والالتزام -->
+    <section class="card history-box">
+      <div class="history-header">
+        <h2>📜 سجل الالتزام الدائم</h2>
+        <button id="btn-export-history" class="btn-sm">تحميل نسخة من السجل</button>
+      </div>
+      <p class="history-desc">جميع الجرعات المسجلة عبر الأيام والشهور:</p>
+      <div class="history-scroll-container">
+        <ul id="history-list" class="history-list"></ul>
+      </div>
     </section>
   </main>
 
