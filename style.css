@@ -293,3 +293,27 @@ button {
   padding: 3px 6px;
   border-radius: 4px;
 }
+
+
+.time-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.btn-del-time {
+  background: #fed7d7;
+  color: #9b2c2c;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 16px;
+  width: auto;
+}
+
+.time-badges-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
