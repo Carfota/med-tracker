@@ -48,31 +48,44 @@
     </section>
 
     <!-- نموذج إضافة دواء جديد -->
-    <section class="card form-box">
+<section class="card form-box">
       <h2>إضافة ميعاد دواء</h2>
       <form id="med-form">
         <div class="input-group">
           <label>اسم الدواء:</label>
-          <input type="text" id="med-name" placeholder="مثال: فيتامين د" required>
+          <input type="text" id="med-name" placeholder="مثال: مضاد حيوي" required>
         </div>
 
         <div class="input-group">
           <label>الجرعة / ملاحظة:</label>
-          <input type="text" id="med-dose" placeholder="مثال: كبسولة واحدة بعد الغداء" required>
+          <input type="text" id="med-dose" placeholder="مثال: قرص واحد بعد الطعام" required>
         </div>
 
+        <!-- أوقات التنبيه (مرنة لإضافة أكثر من وقت باليوم) -->
         <div class="input-group">
-          <label>الميعاد:</label>
-          <input type="time" id="med-time" required>
+          <label>مواعيد الجرعات في اليوم:</label>
+          <div id="times-container">
+            <div class="time-row">
+              <input type="time" class="med-time-input" required>
+            </div>
+          </div>
+          <button type="button" id="btn-add-time" class="btn-sm" style="margin-top: 8px;">+ إضافة ميعاد آخر لنفس الدواء</button>
         </div>
 
         <div class="input-group">
           <label>نظام التكرار:</label>
           <select id="med-recurrence">
             <option value="daily">يومياً</option>
-            <option value="weekly">أسبوعياً (يوم محدد)</option>
-            <option value="monthly">شهرياً (تاريخ محدد)</option>
+            <option value="interval">كل عدة أيام (دوري: كل يومين، 3 أيام...)</option>
+            <option value="weekly">أسبوعياً (يوم محدد في الأسبوع)</option>
+            <option value="monthly">شهرياً (تاريخ محدد كل شهر)</option>
           </select>
+        </div>
+
+        <!-- حقل كل كام يوم -->
+        <div class="input-group hidden" id="box-interval-days">
+          <label>تكرار كل كام يوم؟</label>
+          <input type="number" id="med-interval" min="2" max="30" value="2" placeholder="مثال: 2 يعني يوم ويوم، 3 يعني كل 3 أيام">
         </div>
 
         <div class="input-group hidden" id="box-weekly-day">
@@ -93,10 +106,10 @@
           <input type="number" id="med-monthday" min="1" max="31" value="1">
         </div>
 
-        <button type="submit" class="btn-primary">+ حفظ الميعاد</button>
+        <button type="submit" class="btn-primary">+ حفظ الدواء والمواعيد</button>
       </form>
     </section>
-
+    
     <!-- قائمة جدول اليوم -->
     <section class="card list-box">
       <h2>📋 جدول أدوية اليوم وحالتها</h2>
