@@ -1,5 +1,4 @@
 let meds = JSON.parse(localStorage.getItem('my_medications')) || [];
-// سجل تاريخي دائم لجميع السنوات والأيام
 let medHistory = JSON.parse(localStorage.getItem('my_medications_history')) || [];
 
 const audio = document.getElementById('alarm-audio');
@@ -25,6 +24,18 @@ function formatTo12Hour(time24) {
 function getTodayDateString() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// فحص تكرار كل X أيام (Interval)
+function isIntervalDueToday(startDateStr, intervalDays) {
+  const start = new Date(startDateStr);
+  start.setHours(0, 0, 0, 0);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  const diffTime = now.getTime() - start.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays >= 0 && (diffDays % intervalDays === 0);
 }
 
 // استرجاع النغمة المخصصة
@@ -77,14 +88,30 @@ document.getElementById('btn-test-sound').addEventListener('click', () => {
   }
 });
 
-// نوع التكرار
+// إدارة حقول المواعيد المتعددة
+const timesContainer = document.getElementById('times-container');
+document.getElementById('btn-add-time').addEventListener('click', () => {
+  const div = document.createElement('div');
+  div.className = 'time-row';
+  div.innerHTML = `
+    <input type="time" class="med-time-input" required>
+    <button type="button" class="btn-del-time" onclick="this.parentElement.remove()">✕</button>
+  `;
+  timesContainer.appendChild(div);
+});
+
+// تبديل حقول التكرار
 const recurrenceSelect = document.getElementById('med-recurrence');
+const intervalBox = document.getElementById('box-interval-days');
 const weeklyBox = document.getElementById('box-weekly-day');
 const monthlyBox = document.getElementById('box-monthly-day');
 
 recurrenceSelect.addEventListener('change', (e) => {
+  intervalBox.classList.add('hidden');
   weeklyBox.classList.add('hidden');
   monthlyBox.classList.add('hidden');
+
+  if (e.target.value === 'interval') intervalBox.classList.remove('hidden');
   if (e.target.value === 'weekly') weeklyBox.classList.remove('hidden');
   if (e.target.value === 'monthly') monthlyBox.classList.remove('hidden');
 });
@@ -108,21 +135,27 @@ function updateClockAndCheck() {
   const currentDayOfMonth = now.getDate();
 
   meds.forEach(med => {
-    let shouldTrigger = false;
+    let isDayMatched = false;
 
-    if (med.time === currentTime) {
-      if (med.recurrence === 'daily') {
-        shouldTrigger = true;
-      } else if (med.recurrence === 'weekly' && parseInt(med.day) === currentDayOfWeek) {
-        shouldTrigger = true;
-      } else if (med.recurrence === 'monthly' && parseInt(med.day) === currentDayOfMonth) {
-        shouldTrigger = true;
-      }
+    if (med.recurrence === 'daily') {
+      isDayMatched = true;
+    } else if (med.recurrence === 'interval') {
+      isDayMatched = isIntervalDueToday(med.startDate, parseInt(med.intervalDays));
+    } else if (med.recurrence === 'weekly' && parseInt(med.day) === currentDayOfWeek) {
+      isDayMatched = true;
+    } else if (med.recurrence === 'monthly' && parseInt(med.day) === currentDayOfMonth) {
+      isDayMatched = true;
     }
 
-    if (shouldTrigger && !triggeredToday[med.id + '_' + currentTime]) {
-      triggerAlarm(med);
-      triggeredToday[med.id + '_' + currentTime] = true;
+    if (isDayMatched) {
+      // فحص مصفوفة الأوقات المسجلة للدواء
+      const timeList = Array.isArray(med.times) ? med.times : [med.time];
+      timeList.forEach(t => {
+        if (t === currentTime && !triggeredToday[`${med.id}_${t}`]) {
+          triggerAlarm(med, t);
+          triggeredToday[`${med.id}_${t}`] = true;
+        }
+      });
     }
   });
 
@@ -135,15 +168,15 @@ function updateClockAndCheck() {
 setInterval(updateClockAndCheck, 1000);
 
 // تشغيل المنبه
-function triggerAlarm(med) {
-  activeAlarmMed = med;
+function triggerAlarm(med, exactTime) {
+  activeAlarmMed = { ...med, currentTriggeredTime: exactTime };
   document.getElementById('alarm-med-name').innerText = med.name;
-  document.getElementById('alarm-med-dose').innerText = med.dose;
+  document.getElementById('alarm-med-dose').innerText = `${med.dose} (ميعاد ${formatTo12Hour(exactTime)})`;
   modal.classList.remove('hidden');
 
   audio.currentTime = 0;
   audio.play().catch(err => {
-    console.log("يلزم التفاعل مع الصفحة للسماح بالتشغيل التلقائي للصوت");
+    console.log("يلزم تفاعل مسبق لتشغيل الصوت تلقائياً");
   });
 
   if ('vibrate' in navigator) {
@@ -151,7 +184,7 @@ function triggerAlarm(med) {
   }
 }
 
-// زر تأكيد أخذ الدواء وتخزينه في السجل الدائم
+// زر تأكيد أخذ الجرعة
 document.getElementById('btn-stop-alarm').addEventListener('click', () => {
   audio.pause();
   audio.currentTime = 0;
@@ -162,24 +195,24 @@ document.getElementById('btn-stop-alarm').addEventListener('click', () => {
     const todayStr = getTodayDateString();
     const timeFormatted = formatTo12Hour(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
     
-    // إضافة لسجل الهيستوري الدائم
     const historyEntry = {
       id: Date.now(),
       medId: activeAlarmMed.id,
       medName: activeAlarmMed.name,
       dose: activeAlarmMed.dose,
+      scheduledTime: activeAlarmMed.currentTriggeredTime,
       date: todayStr,
       takenAtTime: timeFormatted,
       fullTimestamp: now.toISOString()
     };
 
-    medHistory.unshift(historyEntry); // إضافة في البداية
+    medHistory.unshift(historyEntry);
     localStorage.setItem('my_medications_history', JSON.stringify(medHistory));
 
-    // إلغاء أي غفوة مجدولة لنفس الدواء
-    if (snoozeTimeouts[activeAlarmMed.id]) {
-      clearTimeout(snoozeTimeouts[activeAlarmMed.id]);
-      delete snoozeTimeouts[activeAlarmMed.id];
+    const snoozeKey = `${activeAlarmMed.id}_${activeAlarmMed.currentTriggeredTime}`;
+    if (snoozeTimeouts[snoozeKey]) {
+      clearTimeout(snoozeTimeouts[snoozeKey]);
+      delete snoozeTimeouts[snoozeKey];
     }
 
     renderMeds();
@@ -188,37 +221,56 @@ document.getElementById('btn-stop-alarm').addEventListener('click', () => {
   }
 });
 
-// ميزة الغفوة (10 دقائق)
+// الغفوة (10 دقائق)
 document.getElementById('btn-snooze-alarm').addEventListener('click', () => {
   audio.pause();
   audio.currentTime = 0;
   modal.classList.add('hidden');
 
   if (activeAlarmMed) {
-    const medToSnooze = activeAlarmMed;
-    alert(`تم تأجيل التنبيه لدواء (${medToSnooze.name}) لمدة 10 دقائق.`);
+    const medToSnooze = { ...activeAlarmMed };
+    const snoozeKey = `${medToSnooze.id}_${medToSnooze.currentTriggeredTime}`;
+    alert(`تم تأجيل ميعاد (${medToSnooze.name}) لمدة 10 دقائق.`);
     
-    snoozeTimeouts[medToSnooze.id] = setTimeout(() => {
-      triggerAlarm(medToSnooze);
-    }, 10 * 60 * 1000); // 10 دقائق
+    snoozeTimeouts[snoozeKey] = setTimeout(() => {
+      triggerAlarm(medToSnooze, medToSnooze.currentTriggeredTime);
+    }, 10 * 60 * 1000);
 
     activeAlarmMed = null;
   }
 });
 
-// فحص هل تم أخذ الدواء اليوم
-function isMedTakenToday(medId) {
+// فحص هل الجرعة أُخذت اليوم لميعاد معين
+function isDoseTakenToday(medId, timeStr) {
   const todayStr = getTodayDateString();
-  return medHistory.some(entry => entry.medId === medId && entry.date === todayStr);
+  return medHistory.some(entry => entry.medId === medId && entry.date === todayStr && entry.scheduledTime === timeStr);
 }
 
 // حفظ دواء جديد
 document.getElementById('med-form').addEventListener('submit', (e) => {
   e.preventDefault();
+
+  // تجميع كافة الأوقات المدخلة
+  const timeInputs = document.querySelectorAll('.med-time-input');
+  const times = [];
+  timeInputs.forEach(input => {
+    if (input.value && !times.includes(input.value)) {
+      times.push(input.value);
+    }
+  });
+
+  if (times.length === 0) {
+    alert('يرجى تحديد ميعاد واحد على الأقل.');
+    return;
+  }
+
   const recType = recurrenceSelect.value;
   let recDay = null;
+  let intervalDays = null;
 
-  if (recType === 'weekly') {
+  if (recType === 'interval') {
+    intervalDays = parseInt(document.getElementById('med-interval').value) || 2;
+  } else if (recType === 'weekly') {
     recDay = document.getElementById('med-weekday').value;
   } else if (recType === 'monthly') {
     recDay = document.getElementById('med-monthday').value;
@@ -228,27 +280,36 @@ document.getElementById('med-form').addEventListener('submit', (e) => {
     id: Date.now(),
     name: document.getElementById('med-name').value.trim(),
     dose: document.getElementById('med-dose').value.trim(),
-    time: document.getElementById('med-time').value,
+    times: times,
     recurrence: recType,
+    intervalDays: intervalDays,
+    startDate: getTodayDateString(), // نقطة بداية الحساب للدوري
     day: recDay
   };
 
   meds.push(newMed);
   localStorage.setItem('my_medications', JSON.stringify(meds));
+
   e.target.reset();
+  timesContainer.innerHTML = `
+    <div class="time-row">
+      <input type="time" class="med-time-input" required>
+    </div>
+  `;
+  intervalBox.classList.add('hidden');
   weeklyBox.classList.add('hidden');
   monthlyBox.classList.add('hidden');
   renderMeds();
 });
 
-// حذف ميعاد
+// حذف دواء
 function deleteMed(id) {
   meds = meds.filter(m => m.id !== id);
   localStorage.setItem('my_medications', JSON.stringify(meds));
   renderMeds();
 }
 
-// عرض قائمة الأدوية
+// عرض القائمة
 function renderMeds() {
   const list = document.getElementById('med-list');
   list.innerHTML = '';
@@ -258,20 +319,30 @@ function renderMeds() {
     return;
   }
 
-  meds.sort((a, b) => a.time.localeCompare(b.time));
-
   meds.forEach(med => {
     let recLabel = 'يومياً';
-    if (med.recurrence === 'weekly') {
+    if (med.recurrence === 'interval') {
+      recLabel = `كل ${med.intervalDays} أيام`;
+    } else if (med.recurrence === 'weekly') {
       recLabel = `أسبوعياً (كل ${weekDaysArabic[med.day]})`;
     } else if (med.recurrence === 'monthly') {
       recLabel = `شهرياً (يوم ${med.day} في الشهر)`;
     }
 
-    const takenToday = isMedTakenToday(med.id);
-    const statusHtml = takenToday 
-      ? `<span class="status-indicator taken-yes">✔ تم أخذ جرعة اليوم</span>`
-      : `<span class="status-indicator taken-no">⏳ في انتظار الجرعة</span>`;
+    const timeList = Array.isArray(med.times) ? med.times : [med.time];
+
+    // حالة كل ميعاد داخل اليوم
+    let timeBadgesHtml = timeList.map(t => {
+      const taken = isDoseTakenToday(med.id, t);
+      const mark = taken ? '✔ تم' : '⏳ متبقي';
+      const badgeClass = taken ? 'taken-yes' : 'taken-no';
+      return `
+        <span class="med-time-tag">
+          ${formatTo12Hour(t)} 
+          <small class="status-indicator ${badgeClass}" style="margin:0 4px;">${mark}</small>
+        </span>
+      `;
+    }).join(' ');
 
     const li = document.createElement('li');
     li.className = 'med-item';
@@ -280,10 +351,9 @@ function renderMeds() {
         <h3>${med.name}</h3>
         <p>${med.dose}</p>
         <span class="tag-badge">${recLabel}</span>
-        <div>${statusHtml}</div>
+        <div class="time-badges-container">${timeBadgesHtml}</div>
       </div>
       <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-        <span class="med-time-tag">${formatTo12Hour(med.time)}</span>
         <button class="btn-del" onclick="deleteMed(${med.id})">حذف</button>
       </div>
     `;
@@ -291,7 +361,7 @@ function renderMeds() {
   });
 }
 
-// عرض السجل التاريخي الدائم
+// عرض الهيستوري الدائم
 function renderHistory() {
   const historyList = document.getElementById('history-list');
   historyList.innerHTML = '';
@@ -302,11 +372,12 @@ function renderHistory() {
   }
 
   medHistory.forEach(item => {
+    const schedInfo = item.scheduledTime ? ` (ميعاد ${formatTo12Hour(item.scheduledTime)})` : '';
     const li = document.createElement('li');
     li.className = 'history-item';
     li.innerHTML = `
       <div>
-        <div class="hist-title">${item.medName} (${item.dose})</div>
+        <div class="hist-title">${item.medName} - ${item.dose}${schedInfo}</div>
         <div style="font-size:12px; color:#718096; margin-top:2px;">تاريخ: ${item.date}</div>
       </div>
       <div class="hist-time">تم الأخذ: ${item.takenAtTime}</div>
@@ -315,7 +386,7 @@ function renderHistory() {
   });
 }
 
-// زر تصدير السجل وتحميله كملف نصي للرجوع له مع الطبيب
+// تصدير السجل
 document.getElementById('btn-export-history').addEventListener('click', () => {
   if (medHistory.length === 0) {
     alert('السجل فارغ حالياً.');
@@ -334,16 +405,14 @@ document.getElementById('btn-export-history').addEventListener('click', () => {
   a.href = URL.createObjectURL(blob);
   a.download = `سجل_الأدوية_${getTodayDateString()}.txt`;
   a.click();
+});
 
-
-  if ('serviceWorker' in navigator) {
+// تسجيل الـ Service Worker في المكان الصحيح
+if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js')
     .then(() => console.log('Service Worker Registered'))
     .catch((err) => console.log('SW registration failed:', err));
 }
-
-  
-});
 
 renderMeds();
 renderHistory();
