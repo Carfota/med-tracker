@@ -11,7 +11,7 @@ let activeAlarmMed = null;
 let triggeredToday = {};
 let snoozeTimeouts = {};
 
-// تحويل من صيغة 24 ساعة إلى 12 ساعة
+// 1. تحويل الوقت من 24 إلى 12 ساعة (ص / م)
 function formatTo12Hour(time24) {
   if (!time24) return '';
   let [hours, minutes] = time24.split(':').map(Number);
@@ -20,13 +20,13 @@ function formatTo12Hour(time24) {
   return `${hours}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
-// مفتاح تاريخ اليوم بصيغة YYYY-MM-DD
+// 2. مفتاح تاريخ اليوم بصيغة YYYY-MM-DD
 function getTodayDateString() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// فحص تكرار كل X أيام (Interval)
+// 3. التحقق من التكرار كل عدة أيام (Interval)
 function isIntervalDueToday(startDateStr, intervalDays) {
   const start = new Date(startDateStr);
   start.setHours(0, 0, 0, 0);
@@ -38,34 +38,63 @@ function isIntervalDueToday(startDateStr, intervalDays) {
   return diffDays >= 0 && (diffDays % intervalDays === 0);
 }
 
-// استرجاع النغمة المخصصة
-const savedCustomAudio = localStorage.getItem('custom_alarm_sound');
-if (savedCustomAudio) {
-  audio.src = savedCustomAudio;
-  audioStatusText.innerText = 'النغمة الحالية: تم اختيار نغمة من الهاتف';
+// 4. قاعدة بيانات IndexedDB لحفظ النغمة بشكل دائم دون أن تُمسح
+function openAudioDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('MedAlarmAudioDB', 1);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('sounds')) {
+        db.createObjectStore('sounds');
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
 }
 
-// رفع نغمة من الهاتف
-customAudioFileInput.addEventListener('change', (e) => {
+async function loadSavedAudio() {
+  try {
+    const db = await openAudioDB();
+    const tx = db.transaction('sounds', 'readonly');
+    const store = tx.objectStore('sounds');
+    const getReq = store.get('customTone');
+
+    getReq.onsuccess = () => {
+      if (getReq.result) {
+        const audioBlob = getReq.result;
+        audio.src = URL.createObjectURL(audioBlob);
+        audioStatusText.innerText = 'النغمة الحالية: نغمة مخصصة محفوظة من الهاتف';
+      }
+    };
+  } catch (err) {
+    console.error('فشل تحميل النغمة المحفوظة:', err);
+  }
+}
+
+customAudioFileInput.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = function(event) {
-    const base64Audio = event.target.result;
-    try {
-      localStorage.setItem('custom_alarm_sound', base64Audio);
-      audio.src = base64Audio;
+  try {
+    const db = await openAudioDB();
+    const tx = db.transaction('sounds', 'readwrite');
+    const store = tx.objectStore('sounds');
+    store.put(file, 'customTone');
+
+    tx.oncomplete = () => {
+      audio.src = URL.createObjectURL(file);
       audioStatusText.innerText = `النغمة الحالية: ${file.name}`;
-      alert('تم حفظ النغمة بنجاح!');
-    } catch (err) {
-      alert('الملف الصوتي كبير الحجم، يرجى اختيار ملف نغمة خفيف.');
-    }
-  };
-  reader.readAsDataURL(file);
+      alert('تم حفظ النغمة في ذاكرة التطبيق الدائمة بنجاح!');
+    };
+  } catch (err) {
+    alert('حدث خطأ أثناء حفظ النغمة.');
+  }
 });
 
-// إعدادات الصوت
+loadSavedAudio();
+
+// 5. إعدادات الصوت
 volumeSlider.value = localStorage.getItem('med_alarm_volume') || 1;
 audio.volume = parseFloat(volumeSlider.value);
 
@@ -88,7 +117,7 @@ document.getElementById('btn-test-sound').addEventListener('click', () => {
   }
 });
 
-// إدارة حقول المواعيد المتعددة
+// 6. إضافة مواعيد متعددة
 const timesContainer = document.getElementById('times-container');
 document.getElementById('btn-add-time').addEventListener('click', () => {
   const div = document.createElement('div');
@@ -100,7 +129,7 @@ document.getElementById('btn-add-time').addEventListener('click', () => {
   timesContainer.appendChild(div);
 });
 
-// تبديل حقول التكرار
+// 7. خيارات التكرار
 const recurrenceSelect = document.getElementById('med-recurrence');
 const intervalBox = document.getElementById('box-interval-days');
 const weeklyBox = document.getElementById('box-weekly-day');
@@ -118,7 +147,7 @@ recurrenceSelect.addEventListener('change', (e) => {
 
 const weekDaysArabic = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
-// فحص المواعيد والساعة
+// 8. فحص المواعيد والساعة وتنبيه المنبه
 function updateClockAndCheck() {
   const now = new Date();
   
@@ -148,7 +177,6 @@ function updateClockAndCheck() {
     }
 
     if (isDayMatched) {
-      // فحص مصفوفة الأوقات المسجلة للدواء
       const timeList = Array.isArray(med.times) ? med.times : [med.time];
       timeList.forEach(t => {
         if (t === currentTime && !triggeredToday[`${med.id}_${t}`]) {
@@ -167,7 +195,7 @@ function updateClockAndCheck() {
 
 setInterval(updateClockAndCheck, 1000);
 
-// تشغيل المنبه
+// 9. تشغيل المنبه
 function triggerAlarm(med, exactTime) {
   activeAlarmMed = { ...med, currentTriggeredTime: exactTime };
   document.getElementById('alarm-med-name').innerText = med.name;
@@ -176,7 +204,7 @@ function triggerAlarm(med, exactTime) {
 
   audio.currentTime = 0;
   audio.play().catch(err => {
-    console.log("يلزم تفاعل مسبق لتشغيل الصوت تلقائياً");
+    console.log("يلزم تفاعل أولي لتشغيل الصوت");
   });
 
   if ('vibrate' in navigator) {
@@ -184,7 +212,7 @@ function triggerAlarm(med, exactTime) {
   }
 }
 
-// زر تأكيد أخذ الجرعة
+// 10. تأكيد أخذ الجرعة وحفظها بالسجل الدائم
 document.getElementById('btn-stop-alarm').addEventListener('click', () => {
   audio.pause();
   audio.currentTime = 0;
@@ -221,7 +249,7 @@ document.getElementById('btn-stop-alarm').addEventListener('click', () => {
   }
 });
 
-// الغفوة (10 دقائق)
+// 11. الغفوة (10 دقائق)
 document.getElementById('btn-snooze-alarm').addEventListener('click', () => {
   audio.pause();
   audio.currentTime = 0;
@@ -240,17 +268,15 @@ document.getElementById('btn-snooze-alarm').addEventListener('click', () => {
   }
 });
 
-// فحص هل الجرعة أُخذت اليوم لميعاد معين
 function isDoseTakenToday(medId, timeStr) {
   const todayStr = getTodayDateString();
   return medHistory.some(entry => entry.medId === medId && entry.date === todayStr && entry.scheduledTime === timeStr);
 }
 
-// حفظ دواء جديد
+// 12. حفظ الدواء
 document.getElementById('med-form').addEventListener('submit', (e) => {
   e.preventDefault();
 
-  // تجميع كافة الأوقات المدخلة
   const timeInputs = document.querySelectorAll('.med-time-input');
   const times = [];
   timeInputs.forEach(input => {
@@ -283,7 +309,7 @@ document.getElementById('med-form').addEventListener('submit', (e) => {
     times: times,
     recurrence: recType,
     intervalDays: intervalDays,
-    startDate: getTodayDateString(), // نقطة بداية الحساب للدوري
+    startDate: getTodayDateString(),
     day: recDay
   };
 
@@ -302,14 +328,13 @@ document.getElementById('med-form').addEventListener('submit', (e) => {
   renderMeds();
 });
 
-// حذف دواء
 function deleteMed(id) {
   meds = meds.filter(m => m.id !== id);
   localStorage.setItem('my_medications', JSON.stringify(meds));
   renderMeds();
 }
 
-// عرض القائمة
+// 13. عرض القائمة
 function renderMeds() {
   const list = document.getElementById('med-list');
   list.innerHTML = '';
@@ -331,7 +356,6 @@ function renderMeds() {
 
     const timeList = Array.isArray(med.times) ? med.times : [med.time];
 
-    // حالة كل ميعاد داخل اليوم
     let timeBadgesHtml = timeList.map(t => {
       const taken = isDoseTakenToday(med.id, t);
       const mark = taken ? '✔ تم' : '⏳ متبقي';
@@ -361,7 +385,7 @@ function renderMeds() {
   });
 }
 
-// عرض الهيستوري الدائم
+// 14. عرض السجل التاريخي الدائم
 function renderHistory() {
   const historyList = document.getElementById('history-list');
   historyList.innerHTML = '';
@@ -386,16 +410,14 @@ function renderHistory() {
   });
 }
 
-// تصدير السجل
+// 15. تصدير السجل
 document.getElementById('btn-export-history').addEventListener('click', () => {
   if (medHistory.length === 0) {
     alert('السجل فارغ حالياً.');
     return;
   }
 
-  let fileContent = "سجل التزام مواعيد الدواء الدائم:\n";
-  fileContent += "====================================\n\n";
-
+  let fileContent = "سجل التزام مواعيد الدواء الدائم:\n====================================\n\n";
   medHistory.forEach((h, index) => {
     fileContent += `${index + 1}. الدواء: ${h.medName} | الجرعة: ${h.dose}\n   التاريخ: ${h.date} | وقت التأكيد: ${h.takenAtTime}\n------------------------------------\n`;
   });
@@ -407,7 +429,12 @@ document.getElementById('btn-export-history').addEventListener('click', () => {
   a.click();
 });
 
-// تسجيل الـ Service Worker في المكان الصحيح
+// منع قفل الشاشة تلقائياً أثناء تشغيل التطبيق
+if ('wakeLock' in navigator) {
+  navigator.wakeLock.request('screen').catch((err) => console.log('WakeLock error:', err));
+}
+
+// تسجيل الـ Service Worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js')
     .then(() => console.log('Service Worker Registered'))
